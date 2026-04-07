@@ -1,0 +1,15 @@
+Site,Site_nickname,Last_fire_severity,severity,TSF_years,Veg_type,Veg_type_alt,Veg_type_alt_2,Fire_interval,Min_TFI,Simple_fire_response_dominants,Fire_response,aridity
+NSMSEQCasWoo01,NSW-Forest-Flood,Extreme,5,4.7,forest,casuarina forest,casuarina forest,long,30,Resprouter,Stem resprouter,0.6105812500000001
+QDMSEQRainfo01,QLD-Rainfo-Subtrop,Low/moderate,1.75,4.8,rainforest,rainforest,rainforest,long,100,Intolerant,Intolerant,0.9676833333333335
+SAMMDDMallee01,SA-Mallee-Spinifex,High,3,3.3,mallee,mallee,mallee,moderate,15,Resprouter,Basal resprouter,0.4924
+SAMMDDMallee02,SA-Mallee-Chenopod,Low/moderate,1.25,2.1,mallee,mallee,mallee,moderate,30,Resprouter,Basal resprouter,0.5300677083333333
+VCMSECEucFor01,VIC-Forest-Euc,Low/moderate,1.75,4.3,forest,eucalypt forest/woodland,eucalypt forest,moderate,10,Resprouter,Stem and basal resprouter,0.8091916666666668
+VCMSECRainfo01,VIC-Rainfo-Temperate,Very high,4,4.3,rainforest,rainforest,rainforest,long,80,Intolerant,Intolerant,0.9115531250000001
+WAMDALEucWoo01,WA-Savanna-Corymbia,Moderate,2,4.8,woodland,eucalypt forest/woodland,eucalypt woodland,short,2,Resprouter,Stem and basal resprouter,0.26919166666666666
+WAMDALRainfo01,WA-Vine-Thicket,Moderate,2,5.1,rainforest,rainforest,vine thicket,long,200,Intolerant,Intolerant,0.2674135416666667
+WAMDALEucWoo02,WA-Savanna-Minyjuru,Moderate,2,5.2,woodland,eucalypt forest/woodland,eucalypt woodland,short,2,Resprouter,Stem and basal resprouter,0.2668739583333334
+WAMCOOShrubl01,WA-Sandplain-AlloCas,Extreme/very high,4.75,3.5,shrubland,shrubland,shrubland,moderate,40,Mixed,mixed resprouter/obligate seeder,0.19699166666666668
+WAMCOOEucWoo01,WA-Woodland-SalmGum,Moderate/high,2.5,3.2,woodland,eucalypt forest/woodland,eucalypt woodland,long,50,Seeder,Obligate seeder,0.1901947916666667
+WAMCOOEucWoo02,WA-Woodland-Oleosa,Extreme,5,4.5,mallee,mallee,mallee,long,20,Resprouter,Basal resprouter,0.17766458333333335
+WAMCOOEucWoo03,WA-Woodland-Gimlet,High/very high,3.5,4.6,woodland,eucalypt forest/woodland,eucalypt woodland,long,50,Seeder,Obligate seeder,0.190503125
+WAMESPShrubl01,WA-Shrub-Kingia,Very high,4,3.7,shrubland,shrubland,shrubland,short,10,Mixed,mixed resprouter/obligate seeder,0.6673687500000001

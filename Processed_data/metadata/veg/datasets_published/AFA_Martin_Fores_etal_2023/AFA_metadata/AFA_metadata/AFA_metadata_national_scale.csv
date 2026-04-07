@@ -1,0 +1,30 @@
+Variable name,Explanation
+APC_canonical_name,Taxon canonical name according to the Australian Plant Census
+APC_name,Taxon scientific name (including authorship) according to the Australian Plant Census
+Author,Author recognised on the APC for the taxon name
+rank,"Rank recognised on the APC for the taxon name (e.g. species, subspecies)"
+taxa_status,Taxon status according to the Australian Plant Census (in this case all records are accepted)
+taxaID,Taxon unique ID recognised on the APC
+ACT_unified_status,Unified introduction status for a taxon in the Australian Capital Territory after harmonising the information recorded on the territory plant census and on the APC
+NSW_unified_status,Unified introduction status for a taxon in New South Wales after harmonising the information recorded on the state plant census and on the APC
+NT_unified_status,Unified introduction status for a taxon in the Northern Territory after harmonising the information recorded on the territory plant census and on the APC
+QLD_unified_status,Unified introduction status for a taxon in Queensland after harmonising the information recorded on the state plant census and on the APC
+SA_unified_status,Unified introduction status for a taxon in the South Australia after harmonising the information recorded on the state plant census and on the APC
+TAS_unified_status,Unified introduction status for a taxon in Tasmania after harmonising the information recorded on the state plant census and on the APC
+VIC_unified_status,Unified introduction status for a taxon in Victoria after harmonising the information recorded on the state plant census and on the APC
+WA_unified_status,Unified introduction status for a taxon in Western Australia after harmonising the information recorded on the state plant census and on the APC
+AR,Introduction status for a taxon in Ashmore Reef the according to the APC
+CoI,Introduction status for a taxon in Cocos Islands the according to the APC
+CaI,Introduction status for a taxon in Cartier Island the according to the APC
+ChI,Introduction status for a taxon in Christmas Island the according to the APC
+LHI,Introduction status for a taxon in Lord Howe Island the according to the APC
+NI,Introduction status for a taxon in Norfolk Island the according to the APC
+HI,Introduction status for a taxon in Heard Island the according to the APC
+CSI,Introduction status for a taxon in Coral Sea Islands the according to the APC
+MDI,Introduction status for a taxon in MacDonald Island the according to the APC
+National_Status,Introduction status at the Australian national scale after integrating the information across the six states and two main territories
+GRIIS_Alien_Status,"For a given taxon, introduction status recorded on the Australian Global Register of Introduced and Invasive Species (GRIIS)"
+GRIIS_comparison,"For a given taxon, result of the comparison of the introduction status obtained after integrating the information across the states and main territories with the status recorded on the Australian Global Register of Introduced and Invasive Species (GRIIS)"
+AFA_unified_status,"For a given taxon, unified introduction status at the Australian national scale after unifying the information resulting from the comparison with the GRIIS"
+establishment_means,Equivalence of the AFA unified status for the Darwin Core establishment means
+degree_of_establishment,Equivalence of the AFA unified status for the Darwin Core degree of establishment

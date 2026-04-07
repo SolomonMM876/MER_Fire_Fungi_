@@ -1,0 +1,14 @@
+Sample ID,Sample Details,Test Name,Result,Units,Absorbance,Time,Manual Dil,Auto Dil
+STANDARD 1,,Ammonia 2.0, 0.0862,mg N/L,0.086234,Wed Apr 23 16:41:01 2025,1,1
+STANDARD 90,,Ammonia 2.0, 0.1103,mg N/L,0.110297,Wed Apr 23 16:43:02 2025,1,1
+STANDARD 91,,Ammonia 2.0, 0.1416,mg N/L,0.141590,Wed Apr 23 16:45:02 2025,1,1
+STANDARD 92,,Ammonia 2.0, 0.2006,mg N/L,0.200576,Wed Apr 23 16:47:00 2025,1,1
+STANDARD 93,,Ammonia 2.0, 0.3539,mg N/L,0.353876,Wed Apr 23 16:49:01 2025,1,1
+STANDARD 94,,Ammonia 2.0, 0.6068,mg N/L,0.606844,Wed Apr 23 16:51:02 2025,1,1
+STANDARD 95,,Ammonia 2.0, 1.0429,mg N/L,1.042878,Wed Apr 23 16:52:41 2025,1,1
+STANDARD 0,,Ammonia 2.0, 0.0813,mg N/L,0.081304,Wed Apr 23 16:54:19 2025,1,1
+C C V,,Ammonia 2.0, 0.9555,mg N/L,0.558534,Wed Apr 23 16:55:58 2025,1,1
+C C B ,,Ammonia 2.0,-0.0389,mg N/L,0.081354,Wed Apr 23 16:57:36 2025,1,1
+mq water,,Ammonia 2.0,-0.0332,mg N/L,0.084084,Wed Apr 23 16:59:15 2025,1,1
+C C V,,Ammonia 2.0, 0.9557,mg N/L,0.558652,Wed Apr 23 17:00:54 2025,1,1
+C C B ,,Ammonia 2.0,-0.0346,mg N/L,0.083372,Wed Apr 23 17:02:32 2025,1,1

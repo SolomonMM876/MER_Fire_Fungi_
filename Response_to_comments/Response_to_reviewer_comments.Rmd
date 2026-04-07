@@ -1,0 +1,1226 @@
+---
+title: "Response to Reviewer comments"
+author: ""
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: hide
+---
+# Load Libraries
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+    echo = TRUE, warning = FALSE, message = FALSE,
+    fig.width = 10, fig.height = 7, dpi = 300
+)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+library(tidyverse)
+library(readxl)
+library(lme4)
+library(lmerTest)
+library(ggpubr)
+library(patchwork)
+library(car)
+library(emmeans)
+library(ggplot2)
+library(vegan)
+```
+
+# Load Metadata
+
+```{r metadata}
+TSF <- readRDS("Processed_data/metadata/fire/Fire_regime_MER.Rdata") %>%
+    distinct(Site, severity, TSF_years)
+
+MER_Site_description <- read_excel("Processed_data/metadata/veg/MER_Site_description.xlsx",
+    sheet = "SP suggestions (highlighted)"
+)
+
+MER_aridity <- readRDS("Processed_data/metadata/Aridity_MER.Rdata")
+
+Mer_veg <- MER_Site_description %>%
+    left_join(TSF) %>%
+    dplyr::select(Site, Site_nickname, Last_fire_severity, severity, TSF_years,
+        Veg_type, Veg_type_alt, Veg_type_alt_2, Fire_interval,
+        Min_TFI = `Min TFI`,
+        Simple_fire_response_dominants, Fire_response
+    ) %>%
+    mutate(Min_TFI = as.numeric(Min_TFI)) %>%
+    left_join(MER_aridity)
+
+# read in host frequency d   ta
+myco_freq_plot <- readRDS("Processed_data/metadata/veg/myco_freq_plot_level_df.Rdata") %>%
+    select(Plot, freq_AM, freq_ECM)
+```
+
+# Load Guild Relative Abundance Data
+
+```{r load-data}
+dat_hyph <- readRDS("Processed_data/Seq_dat/Hyph/all_guild_RA_Hyph.rds")
+dat_soil <- readRDS("Processed_data/Seq_dat/Soil/all_guild_RA_soil.rds")
+```
+
+```{r inspect-data}
+cat("--- Hyph (Myc) columns ---\n")
+colnames(dat_hyph)
+
+cat("\n--- Soil ITS columns ---\n")
+colnames(dat_soil)
+
+cat("\n--- Hyph guilds ---\n")
+unique(dat_hyph$guild2)
+
+cat("\n--- Soil guilds ---\n")
+unique(dat_soil$guild2)
+```
+
+# Join Metadata
+
+```{r join-metadata}
+# Summarise guild RA per plot for Hyph
+# hyph_guild_plot <- dat_hyph %>%
+#     group_by(Site, Plot, Fire_Treatment) %>%
+#     summarise(
+#         guild_reads = sum(count, na.rm = TRUE),
+#         .groups = "drop"
+#     ) %>%
+#     ungroup() %>%
+#     left_join(Mer_veg, by = "Site")%>%
+#   mutate(
+#     excluded = myco_reads == 0,
+#     Fire_Treatment = as.factor(Fire_Treatment),
+#     Site = as.factor(Site)
+#   ) %>%
+#   left_join(myco_freq_plot, by = "Plot") %>%
+#   rename(
+#     host_freq_AM = freq_AM,
+#     host_freq_EcM = freq_ECM,
+#     fire_severity = severity,
+#   )
+
+# Summarise guild RA per plot for Soil
+soil_guild_plot <- dat_soil %>%
+    group_by(Site, Plot, Fire_Treatment) %>%
+    summarise(
+        total_reads = sum(count, na.rm = TRUE),
+        myco_reads = sum(count[str_detect(guild2, "(?i)mycorrhizal")], na.rm = TRUE),
+        Unassigned_reads = sum(count[str_detect(guild2, "(?i)Unassigned")], na.rm = TRUE),
+        .groups = "drop"
+    ) %>%
+    left_join(Mer_veg, by = "Site") %>%
+    mutate(
+        excluded = myco_reads == 0,
+        Fire_Treatment = as.factor(Fire_Treatment),
+        Site = as.factor(Site)
+    ) %>%
+    left_join(myco_freq_plot, by = "Plot") %>%
+    rename(
+        host_freq_AM = freq_AM,
+        host_freq_EcM = freq_ECM,
+        fire_severity = severity,
+    )
+```
+
+```{r check-join}
+# cat(
+#     "Hyph plots with severity info:",
+#     sum(!is.na(hyph_guild_plot$fire_severity)), "/", nrow(hyph_guild_plot), "\n"
+# )
+cat(
+    "Soil plots with severity info:",
+    sum(!is.na(soil_guild_plot$fire_severity)), "/", nrow(soil_guild_plot), "\n"
+)
+```
+
+# Reviewer 2 Comments {.tabset}
+
+## Comment 1
+
+```{r rev2-comment1}
+# ============================================================
+# Test whether excluded samples (0 mycorrhizal reads) are
+# biased toward high fire severity, particular sites, or
+# whether exclusion is better explained by technical factors
+# (low read depth) or ecological context (low host frequency)
+# ============================================================
+# Verify structure
+str(soil_guild_plot)
+table(soil_guild_plot$excluded) # how many excluded vs retained?
+
+ex_samps <- soil_guild_plot %>%
+    filter(excluded == TRUE) %>%
+    count(Site, Fire_Treatment, fire_severity, total_reads, host_freq_AM, host_freq_EcM, myco_reads, Unassigned_reads)
+
+print(ex_samps, n = Inf)
+
+# ── 2. Logistic mixed model: is exclusion predicted by
+#       fire severity or site, after accounting for
+#       read depth and host frequency? ─────────────────────
+m_exclusion <- glmer(
+    excluded ~ fire_severity +
+        scale(total_reads) +
+        scale(host_freq_AM) +
+        scale(host_freq_EcM) +
+        (1 | Site),
+    data = soil_guild_plot,
+    family = binomial(link = "logit")
+)
+
+summary(m_exclusion)
+Anova(m_exclusion, type = "III") # Type III LRT for each predictor
+
+# ── 3. Test site-level bias directly ────────────────────────
+# Chi-square test: are excluded samples distributed evenly
+# across sites?
+site_exclusion_table <- table(soil_guild_plot$Site, soil_guild_plot$excluded)
+chisq.test(site_exclusion_table)
+
+# Proportions excluded per site (for reporting / plotting)
+exclusion_by_site <- as.data.frame(prop.table(site_exclusion_table, margin = 1))
+colnames(exclusion_by_site) <- c("site", "excluded", "proportion")
+exclusion_by_site[exclusion_by_site$excluded == TRUE, ]
+
+# ── 4. Test fire severity bias directly ─────────────────────
+# Among burnt plots only: are excluded samples concentrated
+# in high-severity burns?
+burnt_only <- soil_guild_plot[soil_guild_plot$Fire_Treatment == "B", ]
+
+m_severity_only <- glmer(
+    excluded ~ scale(fire_severity) +
+        scale(total_reads) +
+        (1 | Site),
+    data = burnt_only,
+    family = binomial(link = "logit")
+)
+
+summary(m_severity_only)
+Anova(m_severity_only, type = "III")
+
+# ── 5. Visualise exclusion rate by fire severity class ──────
+ggplot(soil_guild_plot, aes(x = factor(fire_severity), fill = factor(excluded))) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(
+        values = c("grey70", "firebrick"),
+        labels = c("Retained", "Excluded")
+    ) +
+    labs(
+        x = "Fire severity class (Chafer et al. 2004)",
+        y = "Proportion of samples",
+        fill = "Sample status",
+        title = "Exclusion rate by fire severity"
+    ) +
+    theme_classic()
+
+# ── 6. Visualise exclusion rate by site ─────────────────────
+ggplot(soil_guild_plot, aes(x = Site, fill = factor(excluded))) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(
+        values = c("grey70", "firebrick"),
+        labels = c("Retained", "Excluded")
+    ) +
+    labs(
+        x = "Site",
+        y = "Proportion of samples",
+        fill = "Sample status",
+        title = "Exclusion rate by site"
+    ) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# ── 7. Summary table for reporting ──────────────────────────
+exclusion_summary <- aggregate(
+    excluded ~ Site + Fire_Treatment,
+    data = soil_guild_plot,
+    FUN = function(x) {
+        c(
+            n_excluded = sum(x), n_total = length(x),
+            prop = mean(x)
+        )
+    }
+)
+print(exclusion_summary)
+```
+
+
+
+## Comment 2
+
+```{r}
+# From ITS prep script
+wide_myco_soil <- readRDS("Processed_data/Seq_dat/Soil/wide_myco.rds")
+myco_tax_Soil <- readRDS("Processed_data/Seq_dat/Soil/myco_tax_Soil.rds")
+All_Sites <- readRDS("raw_data/MER_Site_Data/All_Sites.RDS") %>%
+    select(Site, Plot, Fire_Treatment)
+MER_fire_regime <- readRDS("Processed_data/metadata/fire/Fire_regime_plot.rds")
+
+# first remove samples that have no mycorrhizal reads because they cause errors below
+wide_myco_soil <- All_Sites %>%
+    left_join(wide_myco_soil) %>%
+    filter(!if_all(starts_with("ITSall"), ~ . == 0))
+
+# ── 1. Add fire severity and TSF to metadata for plotting ───
+wide_myco_soil <- wide_myco_soil %>%
+    left_join(
+        All_Sites %>%
+            left_join(
+                MER_fire_regime %>%
+                    select(
+                        Site, Plot, Fire_Treatment, severity, fire_severity_num, fire_interval
+                    )
+            )
+    )
+
+# extract the community table, save as a new object
+mat_myco <- wide_myco_soil %>% select(starts_with("ITSall"))
+
+# ── 2. PERMANOVA: test fire severity and TSF on composition ─
+# Model 1: Fire treatment + Site (your existing model)
+perm_base <- adonis2(
+    mat_myco ~ Fire_Treatment + Site,
+    data     = wide_myco_soil,
+    distance = "robust.aitchison",
+    by       = "margin"
+)
+print(perm_base)
+
+perm_base <- adonis2(
+    mat_myco ~ fire_severity_num + Site,
+    data     = wide_myco_soil,
+    distance = "robust.aitchison",
+    by       = "margin"
+)
+print(perm_base)
+
+# Model 2: Add fire severity and TSF within burnt plots only
+burnt_myco <- wide_myco_soil %>% filter(Fire_Treatment == "B")
+mat_myco_burnt <- burnt_myco %>% select(starts_with("ITSall"))
+
+perm_burnt <- adonis2(
+    mat_myco_burnt ~ fire_severity + Fire_interval + TSF_years + Veg_type,
+    data     = burnt_myco,
+    distance = "robust.aitchison",
+    by       = "margin"
+)
+print(perm_burnt)
+
+cap_site <- capscale(mat_myco ~ Fire_Treatment + Site, data = wide_myco_soil, distance = "robust.aitchison", add = TRUE)
+anova(cap_site)
+summary(cap_site)
+Cap1_aov <- as.data.frame(anova(cap_site, by = "margin")) %>%
+    rownames_to_column()
+cap_site
+proportions <- round(cap_site$CCA$eig / cap_site$tot.chi * 100, 1) # proportion of variation associated with each axis
+
+
+cap_burnt <- capscale(mat_myco_burnt ~ fire_severity + Fire_interval + TSF_years + Veg_type, data = burnt_myco, distance = "robust.aitchison", add = TRUE)
+anova(cap_burnt)
+summary(cap_burnt)
+Cap1_aov <- as.data.frame(anova(cap_burnt, by = "margin")) %>%
+    rownames_to_column()
+cap_burnt
+proportions_burnt <- round(cap_burnt$CCA$eig / cap_burnt$tot.chi * 100, 1) # proportion of variation associated with each axis
+
+
+# produce a nice plot
+# first extract scores from the resulting object and subset out different types of scores
+scrs <- scores(cap_site, tidy = TRUE)
+scrs_spp <- scrs %>% filter(score == "species")
+scrs_site <- scrs %>% filter(score == "sites")
+scrs_cent <- scrs %>% filter(score == "centroids")
+scrs_biplot <- scrs %>% filter(score == "biplot")
+
+# Extract PERMANOVA stats for annotation
+perm_fire <- perm_base["Fire_Treatment", ]
+perm_site <- perm_base["Site", ]
+perm_df_res <- attr(perm_base, "heading") # residual df is in perm_base
+perm_res_df <- perm_base["Residual", "Df"]
+
+make_perm_label <- function(perm_tbl, res_df) {
+    fire <- perm_tbl["Fire_Treatment", ]
+    site <- perm_tbl["Site", ]
+    paste0(
+        "PERMANOVA:\n",
+        "Fire  F(1,", res_df, ") = ", round(fire$F, 2),
+        ", R\u00b2 = ", round(fire$R2, 3),
+        ", p = ", ifelse(fire$`Pr(>F)` < 0.001, "<0.001", round(fire$`Pr(>F)`, 3)),
+        "\nSite  F(", site$Df, ",", res_df, ") = ", round(site$F, 2),
+        ", R\u00b2 = ", round(site$R2, 3),
+        ", p = ", ifelse(site$`Pr(>F)` < 0.001, "<0.001", round(site$`Pr(>F)`, 3))
+    )
+}
+
+perm_label <- make_perm_label(perm_base, perm_res_df)
+# ── 3. Rebuild CAP scores with severity as a visual variable ─
+scrs_sites_full <- cbind(wide_myco_soil, scrs_site)
+
+# Severity as a continuous colour gradient on the ordination
+p_site <- scrs_sites_full %>%
+    ggplot(aes(x = CAP1, y = CAP2)) +
+    geom_vline(xintercept = 0, color = "grey70", linetype = 2) +
+    geom_hline(yintercept = 0, color = "grey70", linetype = 2) +
+    geom_point(
+        aes(
+            colour = Fire_Treatment,
+            shape = Fire_Treatment
+        ),
+        size = 6,
+        stroke = 2
+    ) +
+    annotate(
+        "text",
+        x = -Inf, y = Inf,
+        label = perm_label,
+        hjust = -0.05, vjust = 1.3,
+        size = 5
+    ) +
+    scale_colour_manual(
+        values = c("B" = "darkred", "U" = "gold"),
+        labels = c("B" = "Burnt", "U" = "Unburnt"),
+        name = "Fire treatment"
+    ) +
+    scale_shape_manual(
+        values = c("B" = 16, "U" = 1),
+        labels = c("B" = "Burnt", "U" = "Unburnt"),
+        name   = "Fire treatment"
+    ) +
+    labs(
+        x = paste0("CAP1 (", proportions[1], "%)"),
+        y = paste0("CAP2 (", proportions[2], "%)")
+    ) +
+    theme_classic() +
+    theme(
+        axis.text.x      = element_text(size = 14, colour = "black"),
+        axis.text.y      = element_text(size = 14, colour = "black"),
+        axis.title       = element_text(size = 16),
+        legend.position  = "top",
+        legend.text      = element_text(size = 12),
+        legend.title     = element_text(size = 13)
+    )
+
+print(p_site)
+ggsave("Plots/p_site.png", plot = p_site, width = 10, height = 7.5, bg = "white")
+```
+
+# Addresses reviewer comment: Line 143
+# Tests whether AM and EcM fungi respond differently to fire
+# RAREFACTION SECTION: Compare rarefied vs. non-rarefied data
+
+```{r am_vs_ecm_alpha_rarefy_vs_unrarefy, fig.width=10, fig.height=7.5}
+# import soil seq data
+MER_Soil <- readRDS("Processed_data/Seq_dat/MER_Soil.rds") %>%
+    mutate(
+        Plot = str_replace(Plot, "(U|B)$", "") %>%
+            str_replace("^NSSO", "NSS")
+    ) %>%
+    # remove empty cols
+    select(-sample, qbit_DNA_conc_ng_uL)
+
+# convert to wide format
+temp <- MER_Soil %>%
+    select(Plot, OTU, count) %>%
+    pivot_wider(names_from = OTU, values_from = count, values_fill = 0)
+
+mat <- temp %>%
+    remove_rownames() %>%
+    column_to_rownames("Plot")
+
+# Step 1: Check read depth distribution across all samples
+plot_read_totals_all <- rowSums(mat)
+cat("Summary of total reads per plot (all OTUs):\n")
+print(summary(plot_read_totals_all))
+cat("\nPlots with fewer than 3,000 reads (will be dropped):\n")
+print(plot_read_totals_all[plot_read_totals_all < 3000])
+
+# Step 2: Rarefy to 3,000 reads
+set.seed(42)
+mat_rare <- rrarefy(
+    mat[plot_read_totals_all >= 3000, ],
+    sample = 3000
+)
+
+# Step 3: Convert rarefied matrix back to long format matching MER_Soil structure
+MER_Soil_rare <- mat_rare %>%
+    as.data.frame() %>%
+    rownames_to_column("Plot") %>%
+    pivot_longer(
+        cols      = -Plot,
+        names_to  = "OTU",
+        values_to = "count"
+    ) %>%
+    filter(count > 0) %>% # drop true zeros
+    left_join( # re-attach all OTU metadata
+        MER_Soil %>%
+            select(-count) %>%
+            distinct(),
+        by = c("Plot", "OTU")
+    ) %>%
+    mutate(Plot = as.factor(Plot))
+
+# Step 4: Construct wide_myco_soil_rare by filtering for mycorrhizal taxa
+Soil_Myco_rare <- MER_Soil_rare %>%
+    filter(str_detect(guild, "mycorrhizal") | str_detect(guild, "Mycorrhizal"))
+
+wide_myco_soil_rare <- Soil_Myco_rare %>%
+    pivot_wider(
+        names_from  = OTU,
+        values_from = count,
+        id_cols     = Plot,
+        values_fill = 0
+    ) %>%
+    mutate(Plot = as.factor(Plot)) %>%
+    left_join(
+        All_Sites %>%
+            select(
+                Site, Plot, Fire_Treatment
+            )
+    )
+
+# Step 5: Sanity checks
+cat("\nPlots retained after rarefaction:", nrow(mat_rare), "\n")
+cat("Plots in non-rarefied wide_myco:  ", nrow(wide_myco_soil), "\n")
+cat("Plots in rarefied wide_myco_soil_rare:", nrow(wide_myco_soil_rare), "\n")
+cat("OTUs in non-rarefied wide_myco:   ", ncol(wide_myco_soil) - 1, "\n")
+cat("OTUs in rarefied wide_myco_soil_rare:", ncol(wide_myco_soil_rare) - 1, "\n")
+
+# Step 6: Save
+# write_rds(MER_Soil_rare,       "Processed_data/Seq_dat/Soil/MER_Soil_rare.rds")
+# write_rds(wide_myco_soil_rare, "Processed_data/Seq_dat/Soil/wide_myco_soil_rare.rds")
+
+# ============================================================
+# Alpha Diversity and Venn Diagrams by Mycorrhizal Guild
+# ============================================================
+
+# ── 0. Additional Libraries ──────────────────────────────────
+# (tidyverse, vegan, lme4, car, ggpubr, patchwork are loaded in setup)
+library(fossil)
+library(broom.mixed)
+library(ggvenn)
+
+# (wide_myco_soil, myco_tax_Soil, and All_Sites are already loaded and pre-joined in the previous chunk)
+
+# ── 1. Identify OTU columns by guild ─────────────────────────
+# Uses guild2 which contains 'EctoMycorrhizal' and 'Arbuscular Mycorrhizal'
+
+ecm_otus <- myco_tax_Soil %>%
+    filter(str_detect(guild2, regex("ectomycorrhizal", ignore_case = TRUE))) %>%
+    pull(OTU)
+
+am_otus <- myco_tax_Soil %>%
+    filter(str_detect(guild2, regex("arbuscular", ignore_case = TRUE))) %>%
+    pull(OTU)
+
+# Subset to OTU columns present in the wide table
+all_otu_cols <- wide_myco_soil %>%
+    select(starts_with("ITSall")) %>%
+    colnames()
+
+ecm_cols <- intersect(paste0(ecm_otus), all_otu_cols)
+am_cols <- intersect(paste0(am_otus), all_otu_cols)
+
+cat("EcM OTUs retained:", length(ecm_cols), "\n")
+cat("AM OTUs retained:", length(am_cols), "\n")
+
+# ── 2. Create guild-specific community matrices ───────────────
+meta_cols <- c("Site", "Plot", "Fire_Treatment")
+
+wide_ecm <- wide_myco_soil %>%
+    select(all_of(meta_cols), all_of(ecm_cols)) %>%
+    filter(!if_all(all_of(ecm_cols), ~ . == 0))
+
+wide_am <- wide_myco_soil %>%
+    select(all_of(meta_cols), all_of(am_cols)) %>%
+    filter(!if_all(all_of(am_cols), ~ . == 0))
+
+# ── 2b. Guild-specific PERMANOVA + CAP ───────────────────────
+
+# Helper: build a CAP plot with PERMANOVA annotation
+make_cap_plot <- function(wide_df, otu_cols, perm_tbl, title_label, tag_label,
+                          col_burnt, col_unburnt) {
+    mat <- wide_df %>% select(all_of(otu_cols))
+    res_df <- perm_tbl["Residual", "Df"]
+    label <- make_perm_label(perm_tbl, res_df)
+
+    cap <- capscale(mat ~ Fire_Treatment + Site,
+        data     = wide_df,
+        distance = "robust.aitchison",
+        add      = TRUE
+    )
+    props <- round(cap$CCA$eig / cap$tot.chi * 100, 1)
+
+    scrs_df <- cbind(wide_df, as.data.frame(scores(cap, display = "sites")))
+
+    ggplot(scrs_df, aes(x = CAP1, y = CAP2)) +
+        geom_vline(xintercept = 0, color = "grey70", linetype = 2) +
+        geom_hline(yintercept = 0, color = "grey70", linetype = 2) +
+        geom_point(aes(colour = Fire_Treatment, shape = Fire_Treatment),
+            size = 6, stroke = 2
+        ) +
+        annotate("text",
+            x = -Inf, y = Inf, label = label,
+            hjust = -0.05, vjust = 1.3, size = 4
+        ) +
+        scale_colour_manual(
+            values = c("B" = col_burnt, "U" = col_unburnt),
+            labels = c("B" = "Burnt", "U" = "Unburnt"),
+            name   = "Fire treatment"
+        ) +
+        scale_shape_manual(
+            values = c("B" = 16, "U" = 1),
+            labels = c("B" = "Burnt", "U" = "Unburnt"),
+            name   = "Fire treatment"
+        ) +
+        labs(
+            tag = tag_label,
+            title = title_label,
+            x = paste0("CAP1 (", props[1], "%)"),
+            y = paste0("CAP2 (", props[2], "%)")
+        ) +
+        theme_classic() +
+        theme(
+            axis.text.x      = element_text(size = 13, colour = "black"),
+            axis.text.y      = element_text(size = 13, colour = "black"),
+            axis.title       = element_text(size = 14),
+            legend.position  = "top",
+            legend.text      = element_text(size = 11),
+            legend.title     = element_text(size = 12),
+            plot.title       = element_text(size = 14, face = "bold", hjust = 0.5),
+            plot.tag         = element_text(size = 14, face = "bold")
+        )
+}
+
+# EcM PERMANOVA
+perm_ecm <- adonis2(
+    wide_ecm %>% select(all_of(ecm_cols)) ~ Fire_Treatment + Site,
+    data     = wide_ecm,
+    distance = "robust.aitchison",
+    by       = "margin"
+)
+print(perm_ecm)
+
+# AM PERMANOVA
+perm_am <- adonis2(
+    wide_am %>% select(all_of(am_cols)) ~ Fire_Treatment + Site,
+    data     = wide_am,
+    distance = "robust.aitchison",
+    by       = "margin"
+)
+print(perm_am)
+
+# Build guild-specific CAP plots
+p_cap_ecm <- make_cap_plot(
+    wide_ecm, ecm_cols, perm_ecm,
+    title_label = "EcM fungi",
+    tag_label = "a)",
+    col_burnt = "darkred",
+    col_unburnt = "gold"
+)
+
+p_cap_am <- make_cap_plot(
+    wide_am, am_cols, perm_am,
+    title_label = "AM fungi",
+    tag_label = "b)",
+    col_burnt = "darkred",
+    col_unburnt = "gold"
+)
+
+# Combined guild CAP figure
+cap_combined <- p_cap_ecm + p_cap_am +
+    plot_layout(guides = "collect") &
+    theme(legend.position = "top")
+
+print(cap_combined)
+ggsave("Plots/cap_guild_combined.png",
+    plot = cap_combined,
+    width = 14, height = 7, bg = "white"
+)
+
+# ── 3. Alpha diversity function ───────────────────────────────
+calc_alpha <- function(wide_df, otu_cols, guild_label) {
+    wide_df %>%
+        rowwise() %>%
+        mutate(
+            Shannon  = diversity(c_across(all_of(otu_cols)), index = "shannon"),
+            Simpson  = diversity(c_across(all_of(otu_cols)), index = "simpson"),
+            Chao1    = chao1(c_across(all_of(otu_cols))),
+            Observed = sum(c_across(all_of(otu_cols))),
+            Pielou   = ifelse(Observed > 1, Shannon / log(Observed), NA),
+            Guild    = guild_label
+        ) %>%
+        ungroup()
+}
+
+alpha_ecm <- calc_alpha(wide_ecm, ecm_cols, "EcM")
+alpha_am <- calc_alpha(wide_am, am_cols, "AM")
+
+# ── 4. Fit LMMs by guild ──────────────────────────────────────
+metrics <- c("Shannon", "Simpson", "Chao1", "Pielou")
+
+fit_anova <- function(alpha_df, guild_label) {
+    alpha_df <- alpha_df %>%
+        mutate(Fire_Treatment = factor(Fire_Treatment, levels = c("U", "B")))
+
+    map_dfr(metrics, function(metric) {
+        formula <- as.formula(paste0(metric, " ~ Fire_Treatment + (1 | Site)"))
+        model <- lmer(formula, data = alpha_df)
+        anov <- Anova(model, test = "F")
+        tidy_m <- tidy(model, effects = "fixed") %>%
+            filter(term == "Fire_TreatmentB")
+
+        tibble(
+            Guild      = guild_label,
+            Metric     = metric,
+            Estimate   = tidy_m$estimate,
+            Std_Error  = tidy_m$std.error,
+            DF_num     = anov$Df,
+            DF_denom   = anov$Df.res,
+            F_value    = anov$F,
+            P_value    = anov$`Pr(>F)`[1]
+        )
+    })
+}
+
+anova_ecm <- fit_anova(alpha_ecm, "EcM")
+anova_am <- fit_anova(alpha_am, "AM")
+anova_guild <- bind_rows(anova_ecm, anova_am)
+print(anova_guild)
+```
+
+# ── 4b. Addresses reviewer comment: richness by Unburnt / Low / Medium / High ──
+# Fire severity (continuous) is already in alpha_ecm / alpha_am via wide_myco_soil.
+# For unburnt plots (Fire_Treatment == "U") set fire_severity to 0 so all plots
+# sit on the same ordinal scale: 0 = Unburnt, 1 = Low, 2 = Medium, 3 = High.
+
+```{r alpha_severity_lmm, fig.width = 12, fig.height = 6}
+# ── Helper: join fire_severity from soil_guild_plot, recode unburnt to ──────
+sev_lookup <- soil_guild_plot %>%
+    select(Site, Plot, fire_severity) %>%
+    distinct()
+
+add_severity_cat <- function(alpha_df) {
+    alpha_df %>%
+        left_join(sev_lookup, by = c("Site", "Plot")) %>%
+        mutate(
+            # unburnt plots have no severity score; assign 0
+            fire_severity_num = if_else(Fire_Treatment == "U", 0,
+                as.numeric(fire_severity)
+            )
+        )
+}
+
+alpha_ecm_sev <- add_severity_cat(alpha_ecm)
+alpha_am_sev <- add_severity_cat(alpha_am)
+
+# ── LMM: Chao1 ~ fire_severity_num + (1 | Site) — continuous predictor ───────
+fit_severity_lmm <- function(alpha_df, guild_label) {
+    map_dfr(metrics, function(metric) {
+        formula <- as.formula(paste0(metric, " ~ fire_severity_num + (1 | Site)"))
+        model <- lmer(formula, data = alpha_df)
+        anov <- Anova(model, test = "F")
+
+        tibble(
+            Guild    = guild_label,
+            Metric   = metric,
+            DF_num   = anov$Df[1],
+            DF_denom = anov$Df.res[1],
+            F_value  = anov$F[1],
+            P_value  = anov$`Pr(>F)`[1]
+        )
+    })
+}
+
+sev_lmm_ecm <- fit_severity_lmm(alpha_ecm_sev, "EcM")
+sev_lmm_am <- fit_severity_lmm(alpha_am_sev, "AM")
+sev_lmm_all <- bind_rows(sev_lmm_ecm, sev_lmm_am)
+print(sev_lmm_all)
+
+# Continuous gradient colours: Unburnt (grey) → Low → Moderate → High → Very High → Extreme (dark red)
+severity_gradient_cols <- c("#cccccc", "#fee08b", "#f4a261", "#e76f51", "#c0392b", "#7b0000")
+
+plot_severity <- function(alpha_df, lmm_df, guild_label, index, tag_label) {
+    p_val <- lmm_df %>%
+        filter(Guild == guild_label, Metric == index) %>%
+        pull(P_value)
+
+    p_label <- case_when(
+        p_val <= 0.001 ~ "p <0.001",
+        p_val <= 0.01 ~ "p <0.01",
+        p_val <= 0.05 ~ paste0("p = ", round(p_val, 3)),
+        p_val <= 0.1 ~ paste0("p = ", round(p_val, 2)),
+        TRUE ~ "ns"
+    )
+
+    # Fit continuous LMM
+    model <- lmer(as.formula(paste0(index, " ~ fire_severity_num + (1 | Site)")),
+        data = alpha_df
+    )
+
+    # Build prediction grid for regression ribbon
+    sev_range <- seq(
+        min(alpha_df$fire_severity_num, na.rm = TRUE),
+        max(alpha_df$fire_severity_num, na.rm = TRUE),
+        length.out = 100
+    )
+    pred_df <- data.frame(fire_severity_num = sev_range)
+    mm <- model.matrix(~fire_severity_num, data = pred_df)
+    pred_df$fit <- as.vector(mm %*% fixef(model))
+    pred_df$se <- sqrt(diag(mm %*% as.matrix(vcov(model)) %*% t(mm)))
+    pred_df <- pred_df %>%
+        mutate(lwr = fit - 1.96 * se, upr = fit + 1.96 * se)
+
+    y_pos <- max(alpha_df[[index]], na.rm = TRUE) * 1.08
+
+    ggplot() +
+        geom_ribbon(
+            data = pred_df,
+            aes(x = fire_severity_num, ymin = lwr, ymax = upr),
+            fill = "grey70", alpha = 0.4
+        ) +
+        geom_line(
+            data = pred_df,
+            aes(x = fire_severity_num, y = fit),
+            linewidth = 1.2, color = "black"
+        ) +
+        geom_jitter(
+            data = alpha_df,
+            aes(x = fire_severity_num, y = .data[[index]], colour = fire_severity_num),
+            width = 0.08, alpha = 0.6, size = 2.5
+        ) +
+        scale_colour_gradientn(
+            colours = severity_gradient_cols,
+            limits  = c(0, 5),
+            breaks  = c(0, 1, 2, 3, 4, 5),
+            labels  = c("Unburnt", "Low", "Moderate", "High", "Very High", "Extreme"),
+            name    = "Severity"
+        ) +
+        scale_x_continuous(
+            breaks = c(0, 1, 2, 3, 4, 5),
+            labels = c("Unburnt", "Low", "Moderate", "High", "Very High", "Extreme")
+        ) +
+        annotate("text",
+            x = 0, y = y_pos,
+            label = p_label, hjust = 0, size = 6
+        ) +
+        labs(
+            tag = tag_label,
+            x   = "Fire Severity",
+            y   = paste0(index, " (", guild_label, ")")
+        ) +
+        theme_classic() +
+        theme(
+            legend.position  = "none",
+            axis.text.x      = element_text(hjust = 0.5, size = 16, face = "bold"),
+            axis.text.y      = element_text(size = 16, face = "bold"),
+            axis.title.x     = element_text(size = 18, face = "bold"),
+            axis.title.y     = element_text(size = 18, face = "bold"),
+            axis.line        = element_line(linewidth = 2, colour = "black"),
+            plot.tag         = element_text(size = 16, face = "bold")
+        )
+}
+
+p_sev_ecm_chao1 <- plot_severity(alpha_ecm_sev, sev_lmm_all, "EcM", "Chao1", "a)")
+p_sev_am_chao1 <- plot_severity(alpha_am_sev, sev_lmm_all, "AM", "Chao1", "b)")
+
+combined_sev_chao1 <- p_sev_ecm_chao1 + p_sev_am_chao1
+print(combined_sev_chao1)
+ggsave("Plots/chao1_by_severity_guild.png",
+    plot = combined_sev_chao1, width = 14, height = 7, bg = "white"
+)
+
+p_sev_ecm_shannon <- plot_severity(alpha_ecm_sev, sev_lmm_all, "EcM", "Shannon", "a)")
+p_sev_am_shannon <- plot_severity(alpha_am_sev, sev_lmm_all, "AM", "Shannon", "b)")
+
+combined_sev_shannon <- p_sev_ecm_shannon + p_sev_am_shannon
+print(combined_sev_shannon)
+ggsave("Plots/shannon_by_severity_guild.png",
+    plot = combined_sev_shannon, width = 14, height = 7, bg = "white"
+)
+
+
+# ── 5. Plot Chao1 by guild ────────────────────────────────────
+plot_chao1 <- function(alpha_df, anova_df, guild_label,
+                       fill_burnt, fill_unburnt, tag_label) {
+    p_val <- anova_df %>%
+        filter(Guild == guild_label, Metric == "Chao1") %>%
+        pull(P_value)
+
+    p_label <- case_when(
+        p_val <= 0.001 ~ "p <0.001",
+        p_val <= 0.01 ~ "p <0.01",
+        p_val <= 0.05 ~ paste0("p = ", round(p_val, 3)),
+        p_val <= 0.1 ~ paste0("p = ", round(p_val, 2)),
+        TRUE ~ "ns"
+    )
+
+    # Fit LMM to extract Estimated Marginal Means
+    m_df <- alpha_df %>%
+        mutate(Fire_Treatment = factor(Fire_Treatment, levels = c("U", "B")))
+
+    model <- lmer(Chao1 ~ Fire_Treatment + (1 | Site), data = m_df)
+
+    emms <- as.data.frame(emmeans::emmeans(model, ~Fire_Treatment)) %>%
+        mutate(
+            Fire_Treatment = case_when(
+                Fire_Treatment == "U" ~ "Unburnt",
+                Fire_Treatment == "B" ~ "Burnt"
+            ),
+            Fire_Treatment = factor(Fire_Treatment, levels = c("Unburnt", "Burnt"))
+        )
+
+    raw_df <- alpha_df %>%
+        mutate(
+            Fire_Treatment = case_when(
+                Fire_Treatment == "U" ~ "Unburnt",
+                Fire_Treatment == "B" ~ "Burnt"
+            ),
+            Fire_Treatment = factor(Fire_Treatment,
+                levels = c("Unburnt", "Burnt")
+            )
+        )
+
+    y_pos <- max(raw_df$Chao1, na.rm = TRUE) * 1.05
+
+    ggplot() +
+        geom_jitter(
+            data = raw_df, aes(x = Fire_Treatment, y = Chao1),
+            width = 0.2, alpha = 0.3, size = 2, color = "grey40"
+        ) +
+        geom_pointrange(
+            data = emms, aes(
+                x = Fire_Treatment, y = emmean,
+                ymin = lower.CL, ymax = upper.CL,
+                fill = Fire_Treatment
+            ),
+            shape = 21, size = 1.2, stroke = 1.5, color = "black"
+        ) +
+        scale_fill_manual(values = c(
+            Unburnt = fill_unburnt,
+            Burnt = fill_burnt
+        )) +
+        annotate("text",
+            x = 0.7, y = y_pos,
+            label = p_label, hjust = 0.5, size = 6
+        ) +
+        labs(
+            tag   = tag_label,
+            x     = "Fire Treatment",
+            y     = paste0("Chao1 Estimated Richness (", guild_label, ")")
+        ) +
+        theme_classic() +
+        theme(
+            legend.position  = "none",
+            axis.text.x      = element_text(hjust = 0.5, size = 16, face = "bold"),
+            axis.text.y      = element_text(size = 16, face = "bold"),
+            axis.title.x     = element_text(size = 18, face = "bold"),
+            axis.title.y     = element_text(size = 18, face = "bold"),
+            axis.line        = element_line(linewidth = 2, colour = "black"),
+            plot.tag         = element_text(size = 16, face = "bold")
+        )
+}
+
+p_chao1_ecm <- plot_chao1(alpha_ecm, anova_guild, "EcM",
+    fill_burnt   = "#2F4F4F",
+    fill_unburnt = "#cccccc",
+    tag_label    = "a)"
+)
+
+p_chao1_am <- plot_chao1(alpha_am, anova_guild, "AM",
+    fill_burnt   = "#7B3F00",
+    fill_unburnt = "#D2B48C",
+    tag_label    = "b)"
+)
+
+plotly::ggplotly(p_chao1_ecm + p_chao1_am)
+# ── 6. Venn diagrams by guild ─────────────────────────────────
+get_otu_sets_guild <- function(df, otu_cols) {
+    list(
+        Unburnt = df %>%
+            filter(Fire_Treatment == "U") %>%
+            select(all_of(otu_cols)) %>%
+            summarise(across(everything(), ~ any(. > 0))) %>%
+            pivot_longer(everything(),
+                names_to = "OTU", values_to = "present"
+            ) %>%
+            filter(present) %>% pull(OTU),
+        Burnt = df %>%
+            filter(Fire_Treatment == "B") %>%
+            select(all_of(otu_cols)) %>%
+            summarise(across(everything(), ~ any(. > 0))) %>%
+            pivot_longer(everything(),
+                names_to = "OTU", values_to = "present"
+            ) %>%
+            filter(present) %>% pull(OTU)
+    )
+}
+
+otu_sets_ecm <- get_otu_sets_guild(wide_ecm, ecm_cols)
+otu_sets_am <- get_otu_sets_guild(wide_am, am_cols)
+
+venn_ecm <- ggvenn(
+    otu_sets_ecm,
+    fill_color      = c("#cccccc", "#2F4F4F"),
+    show_percentage = TRUE,
+    digits          = 0,
+    set_name_size   = 6,
+    stroke_size     = 2,
+    text_size       = 7
+) +
+    labs(tag = "c)", title = "EcM fungi") +
+    theme(
+        plot.tag   = element_text(size = 16, face = "bold"),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5)
+    )
+
+venn_am <- ggvenn(
+    otu_sets_am,
+    fill_color      = c("#D2B48C", "#7B3F00"),
+    show_percentage = TRUE,
+    digits          = 0,
+    set_name_size   = 6,
+    stroke_size     = 2,
+    text_size       = 7
+) +
+    labs(tag = "d)", title = "AM fungi") +
+    theme(
+        plot.tag   = element_text(size = 16, face = "bold"),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5)
+    )
+
+combined_guild <- (p_chao1_ecm + p_chao1_am) / (venn_ecm + venn_am)
+
+# Display the final plot block
+print(combined_guild)
+
+# Save the plot
+ggsave("Plots/combined_guild.png", plot = combined_guild, width = 12, height = 10, bg = "white")
+```
+
+
+
+# Myc (Hyphal) Samples {.tabset}
+
+## Box Plots by Severity
+
+```{r hyph-box-severity, fig.width=12, fig.height=8}
+hyph_guild_plot %>%
+    filter(!is.na(severity)) %>%
+    ggplot(aes(x = severity, y = RA_plot, fill = as.factor(severity))) +
+    geom_boxplot(alpha = 0.7, outlier.shape = 21) +
+    geom_jitter(width = 0.15, alpha = 0.3, size = 1) +
+    facet_wrap(~guild2, scales = "free_y") +
+    # scale_fill_manual(values = severity_colours) +
+    labs(
+        title = "Myc Samples: Guild Relative Abundance by Fire Severity",
+        x = "Fire Severity",
+        y = "Relative Abundance (%)",
+        fill = "Severity"
+    )
+```
+
+## LMM Statistics
+
+```{r hyph-lmm-stats}
+hyph_stats <- hyph_guild_plot %>%
+    filter(!is.na(severity)) %>%
+    group_by(guild2) %>%
+    nest() %>%
+    mutate(
+        model = map(data, lmer(RA_plot ~ severity + (1 | Site), data = .x))
+    ) %>%
+    filter(!map_lgl(anova, is.null)) %>%
+    mutate(
+        F_value = map_dbl(anova, ~ .x$`F value`[1]),
+        p_value = map_dbl(anova, ~ .x$`Pr(>F)`[1])
+    ) %>%
+    select(guild2, F_value, p_value) %>%
+    arrange(p_value) %>%
+    mutate(
+        significance = case_when(
+            p_value < 0.001 ~ "***",
+            p_value < 0.01 ~ "**",
+            p_value < 0.05 ~ "*",
+            p_value < 0.1 ~ ".",
+            TRUE ~ "ns"
+        )
+    )
+
+knitr::kable(hyph_stats,
+    digits = 4,
+    caption = "Myc Samples: LMM ANOVA results for guild ~ severity + (1|Site)"
+)
+```
+
+## Stacked Bar by Site
+
+```{r hyph-stacked-site, fig.width=14, fig.height=8}
+hyph_guild_plot %>%
+    filter(!is.na(severity)) %>%
+    mutate(Site = fct_reorder(Site, as.numeric(factor(severity)))) %>%
+    ggplot(aes(x = Plot, y = RA_plot, fill = guild2)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(~severity, scales = "free_x") +
+    labs(
+        title = "Myc Samples: Guild Composition by Fire Severity",
+        x = "Plot",
+        y = "Relative Abundance (%)",
+        fill = "Guild"
+    ) +
+    theme_pub +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7))
+```
+
+
+# Soil ITS Samples {.tabset}
+
+## Box Plots by Severity
+
+```{r soil-box-severity, fig.width=12, fig.height=8}
+soil_guild_plot %>%
+    filter(!is.na(severity)) %>%
+    ggplot(aes(x = severity, y = RA_plot, fill = severity)) +
+    geom_boxplot(alpha = 0.7, outlier.shape = 21) +
+    geom_jitter(width = 0.15, alpha = 0.3, size = 1) +
+    facet_wrap(~guild2, scales = "free_y") +
+    scale_fill_manual(values = severity_colours) +
+    labs(
+        title = "Soil Samples: Guild Relative Abundance by Fire Severity",
+        x = "Fire Severity",
+        y = "Relative Abundance (%)",
+        fill = "Severity"
+    ) +
+    theme_pub
+```
+
+## LMM Statistics
+
+```{r soil-lmm-stats}
+soil_stats <- soil_guild_plot %>%
+    filter(!is.na(severity)) %>%
+    group_by(guild2) %>%
+    nest() %>%
+    mutate(
+        model = map(data, possibly(~ {
+            lmer(RA_plot ~ severity + (1 | Site), data = .x)
+        }, otherwise = NULL)),
+        anova = map(model, possibly(~ {
+            as.data.frame(anova(.x))
+        }, otherwise = NULL))
+    ) %>%
+    filter(!map_lgl(anova, is.null)) %>%
+    mutate(
+        F_value = map_dbl(anova, ~ .x$`F value`[1]),
+        p_value = map_dbl(anova, ~ .x$`Pr(>F)`[1])
+    ) %>%
+    select(guild2, F_value, p_value) %>%
+    arrange(p_value) %>%
+    mutate(
+        significance = case_when(
+            p_value < 0.001 ~ "***",
+            p_value < 0.01 ~ "**",
+            p_value < 0.05 ~ "*",
+            p_value < 0.1 ~ ".",
+            TRUE ~ "ns"
+        )
+    )
+
+knitr::kable(soil_stats,
+    digits = 4,
+    caption = "Soil Samples: LMM ANOVA results for guild ~ severity + (1|Site)"
+)
+```
+
+## Stacked Bar by Site
+
+```{r soil-stacked-site, fig.width=14, fig.height=8}
+soil_guild_plot %>%
+    filter(!is.na(severity)) %>%
+    mutate(Site = fct_reorder(Site, as.numeric(factor(severity)))) %>%
+    ggplot(aes(x = Plot, y = RA_plot, fill = guild2)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(~severity, scales = "free_x") +
+    labs(
+        title = "Soil Samples: Guild Composition by Fire Severity",
+        x = "Plot",
+        y = "Relative Abundance (%)",
+        fill = "Guild"
+    ) +
+    theme_pub +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7))
+```
+
+
+# Comparison: Myc vs Soil {.tabset}
+
+## Side-by-Side Box Plots
+
+```{r combined-boxplots, fig.width=14, fig.height=10}
+# Combine the two datasets
+combined <- bind_rows(
+    hyph_guild_plot %>%
+        filter(!is.na(severity)) %>%
+        mutate(Sample_type = "Myc (Hyphal)"),
+    soil_guild_plot %>%
+        filter(!is.na(severity)) %>%
+        mutate(Sample_type = "Soil ITS")
+)
+
+combined %>%
+    ggplot(aes(x = severity, y = RA_plot, fill = severity)) +
+    geom_boxplot(alpha = 0.7, outlier.shape = 21) +
+    geom_jitter(width = 0.15, alpha = 0.3, size = 1) +
+    facet_grid(Sample_type ~ guild2, scales = "free_y") +
+    scale_fill_manual(values = severity_colours) +
+    labs(
+        title = "Comparison of Guild Relative Abundance Across Fire Severities",
+        subtitle = "Myc (Hyphal) vs Soil ITS Samples",
+        x = "Fire Severity",
+        y = "Relative Abundance (%)",
+        fill = "Severity"
+    ) +
+    theme(strip.text.y = element_text(angle = 0))
+```
+
+## Summary Statistics Table
+
+```{r combined-summary}
+combined_summary <- combined %>%
+    group_by(Sample_type, guild2, severity) %>%
+    summarise(
+        n = n_distinct(Plot),
+        mean_RA = mean(RA_plot, na.rm = TRUE),
+        sd_RA = sd(RA_plot, na.rm = TRUE),
+        median_RA = median(RA_plot, na.rm = TRUE),
+        .groups = "drop"
+    ) %>%
+    arrange(Sample_type, guild2, severity)
+
+knitr::kable(combined_summary,
+    digits = 2,
+    caption = "Summary statistics of guild relative abundance by sample type and severity"
+)
+```
+
+## Combined LMM Results
+
+```{r combined-lmm}
+combined_stats <- bind_rows(
+    hyph_stats %>% mutate(Sample_type = "Myc (Hyphal)"),
+    soil_stats %>% mutate(Sample_type = "Soil ITS")
+) %>%
+    select(Sample_type, guild2, F_value, p_value, significance) %>%
+    arrange(Sample_type, p_value)
+
+knitr::kable(combined_stats,
+    digits = 4,
+    caption = "Combined LMM ANOVA results: guild ~ severity + (1|Site)"
+)
+```
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```

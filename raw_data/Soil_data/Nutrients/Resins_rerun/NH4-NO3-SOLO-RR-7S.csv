@@ -1,0 +1,19 @@
+Sample ID,Sample Details,Test Name,Result,Units,Absorbance,Time,Manual Dil,Auto Dil,
+C C V,,Ammonia 2.0,0.996,mg N/L,0.507587,Sun Jun 01 20:33:53 2025,1,1,
+C C V,,Nitrate 2,0.9673,mg N/L,0.259092,Sun Jun 01 21:55:47 2025,1,1,
+C C B ,,Ammonia 2.0,0.2249,mg N/L,0.201055,Sun Jun 01 20:35:52 2025,1,1,
+C C B ,,Nitrate 2,-0.0163,mg N/L,0.011116,Sun Jun 01 21:57:49 2025,1,1,
+SOLO-1014X3 (NH),,Ammonia 2.0,2.5161,mg N/L,0.311709,Mon Jun 02 00:35:47 2025,1,5,
+1012X3,,Ammonia 2.0,0.1871,mg N/L,0.148861,Mon Jun 02 17:21:37 2025,1,2,
+1059X3,,Ammonia 2.0,0.1667,mg N/L,0.144797,Mon Jun 02 17:24:18 2025,1,2,
+1061X3,,Ammonia 2.0,0.3867,mg N/L,0.188534,Mon Jun 02 17:28:11 2025,1,2,
+1047X3,,Ammonia 2.0,0.0537,mg N/L,0.115933,Mon Jun 02 00:39:05 2025,1,5,
+548X60,,Ammonia 2.0,-0.6402,mg N/L,0.060765,Mon Jun 02 19:44:41 2025,1,5,will RR 
+509X60,,Ammonia 2.0,-0.5161,mg N/L,0.070628,Mon Jun 02 19:46:20 2025,1,5,will RR 
+508X60,,Ammonia 2.0,-0.6691,mg N/L,0.058469,Mon Jun 02 19:47:58 2025,1,5,will RR 
+SOLO-639 (NO),,Nitrate 2,-0.0272,mg N/L,0.011791,Mon Jun 02 16:45:29 2025,1,2,
+ATB3X20,,Nitrate 2,-0.0729,mg N/L,0.006033,Wed Dec 31 16:00:00 1969,1,2,
+CCV,,Ammonia 2.0,1.0768,mg N/L,0.539725,Sun Jun 01 22:30:10 2025,1,1,
+CCV,,Nitrate 2,0.9712,mg N/L,0.260075,Mon Jun 02 00:04:54 2025,1,1,
+CCB,,Ammonia 2.0,0.2787,mg N/L,0.222444,Sun Jun 01 22:32:12 2025,1,1,
+CCB,,Nitrate 2,-0.0128,mg N/L,0.012001,Mon Jun 02 00:05:49 2025,1,1,

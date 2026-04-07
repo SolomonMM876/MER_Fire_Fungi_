@@ -1,0 +1,119 @@
+
+#################################
+##The Alien Flora of Australia (AFA), a unified Australian national dataset on plant invasion.
+##Martín-Forés, I., Guerin, G.R., Lewis, D., Gallagher, R.V., Vilà, M., Catford, J., Pauchard, A. & Sparrow, B.
+##R script associated with the AFA
+##This R script combines the Australian Plant Census (APC) with all the Australian state and main territory flora censuses in order to detect mismatches between species nomenclature and introduction status accross Australia. 
+##The script can be used with future releases of the APC or any of the state floras, to automatize this process in the future, as long as the format is the same for the source datasets. 
+##The script follows the APC taxonomy as the most recognised authority of taxonomic nomenclature for Australian flora, however it also incorporated standardised nomenclature from GBIF and WFO in order to adapt the tool to other international plant taxonomy sources. 
+##The introduction status recorded in the outcome is based on Blackburn et al. (2011) and the integration on invasion information across Australia conducted by Martín-Forés et al. (2023). Species are therefore classified in the AFA as native, native colonising or native potentially colonising (when they were also introduced or potentially introduced, respectively within the same state or territory of origin), introduced, naturalised (when forming self-sustaining populations) – we also stated whether, for the two former ones, the status was doubtfully or formerly when that was the case –, harmful invasive (when recorded as invasive causing negative impacts according to the Australian Globar Registry of Introduced and Invasive Species (GRIIS)), presumed extinct, or uncertain origin. 
+################################
+
+#####################
+#INTRUCTIONS
+#For static version:
+#1. Read the .csv files contained in the AFA_raw_data folder. They correspond to the raw data used to create the AFA dataset. Please, find the raw data for the Australian Plant Census (APC), the state an main territory plant censuses, and the Global Register of Introduced and Invasive Species (GRIIS)
+#keep following the rest of the steps (2-8).
+
+#For dynamic and up-to-date versions:
+#1. Download plant censuses from states and main territories, or request them to pertinent authorities:
+#Australian Plant Census (APC) = https://biodiversity.org.au/nsl/services/export/index
+
+#State and main territories plant censuses
+#Australian Capital Territory (ACT) = https://www.cpbr.gov.au/cpbr/ACT-census/vascular-gen-alpha.html
+#New South Wales (NSW) = request to the Royal Botanic Gardens, as it cannot be directly downloaded from electronic sources
+#Northern Territory (NT) = http://eflora.nt.gov.au/NTSpeciesList?heading=sNTSpecies
+#Queensland (QLD) = https://www.data.qld.gov.au/dataset/census-of-the-queensland-flora-and-fungi-2022/resource/548d9394-c94c-4512-a2fa-8f667dac2a2f
+#South Australia (SA) = https://data.environment.sa.gov.au/Content/Publications/vascular-plants-bdbsa-taxonomy.xlsx
+#Tasmania (TAS) = https://flora.tmag.tas.gov.au/resources/census/
+#Victoria (VIC) = https://vicflora.rbg.vic.gov.au/flora/download?q=*:* (when downloading VicFlora, select also "Accepted name authorship" and "Has introduced occurrences")
+#Western Australia (WA) = request to the Western Australian Herbarium, as it cannot be directly downloaded from electronic sources
+
+#Australian Global Registry of Introduced and Invasive Species (GRIIS) = https://cloud.gbif.org/griis/resource?r=griis-australia&v=1.9#anchor-downloads
+
+#Once downloaded them, save them as follows in your working directory:
+#APC_original.csv
+#plant_census_ACT.csv
+#plant_census_NSW.csv
+#plant_census_NT.csv
+#plant_census_QLD.csv
+#plant_census_SA.csv
+#plant_census_TAS.csv
+#plant_census_VIC.csv
+#plant_census_WA.csv
+#griis.csv (taxon file)
+#invasive_griis.csv (speciesprofile file)
+#distribution_griis.csv (distribution file)
+
+#Download and save the R source file AFA_functions.R and AFA_secondary_functions.R to your working directory
+
+#WARNING: for step 2, you must choose the fileEncoding specified for each of the datasets to make the matching process work
+#2. Load the input census data files into your workspace as follows (sometimes using UTF-8 encoding and sometimes Latin1, depending on particularities of the dataset):
+APC_raw <- read.csv("APC_original.csv", header = TRUE, sep = ",", fileEncoding = "UTF-8")
+ACT <- read.csv("plant_census_ACT.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "Latin1")
+NSW <- read.csv("plant_census_NSW.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "UTF-8")
+NT <- read.csv("plant_census_NT.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "UTF-8")
+QLD <- read.csv("plant_census_QLD.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "Latin1")
+SA <- read.csv("plant_census_SA.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "Latin1")
+TAS <- read.csv("plant_census_TAS.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "Latin1")
+VIC <- read.csv("plant_census_VIC.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "UTF-8")
+WA <- read.csv("plant_census_WA.csv", header = TRUE, sep = ",", na.strings=c("","NA"), fileEncoding = "Latin1")
+GRIIS <- read.csv("griis.csv", header = TRUE, sep = ",")
+invasive_griis <- read.csv("invasive_griis.csv", header = TRUE, sep = ",")
+distribution_griis <- read.csv("distribution_griis.csv", header = TRUE, sep = ",")
+
+
+#3. Load the source into your R workspace
+source('AFA_main_functions.R')
+source('AFA_secondary_functions.R')
+
+#4. Load required packages
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(rlang)
+library(syntaxr)
+library(WorldFlora)
+library(rgbif)
+library(DBI)
+library(datastructures)
+
+#Warning: for steps 5. and 6., if cross_WFO is selected as TRUE, then WFO needs to be downloaded using the next code line
+#WFO.download (WFO.url ="http://104.198.143.165/files/WFO_Backbone/_WFOCompleteBackbone/WFO_Backbone.zip", save.dir = getwd(), WFO.remember = TRUE)
+#5. Process the national APC data using the sourced function:
+APC_processed <- curate_apc(APC_raw, cross_GBIF = FALSE, cross_WFO = FALSE)
+
+#6. Process required state and territory data using sourced functions:
+ACT_processed <- curate_act(ACT, cross_GBIF = FALSE, cross_WFO = FALSE)
+NSW_processed <- curate_nsw(NSW, cross_GBIF = FALSE, cross_WFO = FALSE)
+NT_processed <- curate_nt(NT, cross_GBIF = FALSE, cross_WFO = FALSE)
+QLD_processed <- curate_qld(QLD, cross_GBIF = FALSE, cross_WFO = FALSE)
+SA_processed <- curate_sa(SA, cross_GBIF = FALSE, cross_WFO = FALSE)
+TAS_processed <- curate_tas(TAS, cross_GBIF = FALSE, cross_WFO = FALSE)
+VIC_processed <- curate_vic(VIC, cross_GBIF = FALSE, cross_WFO = FALSE)
+WA_processed <- curate_wa(WA, cross_GBIF = FALSE, cross_WFO = FALSE)
+GRIIS_processed <- curate_griis(GRIIS, invasive_griis, distribution_griis)
+
+#7. Match status between state/territory census and APC
+AFA_ACT_state_dataset <- match_act(APC_raw, APC_processed, ACT_processed)
+AFA_NSW_state_dataset <- match_nsw(APC_raw, APC_processed, NSW_processed)
+AFA_NT_state_dataset <- match_nt(APC_raw, APC_processed, NT_processed)
+AFA_QLD_state_dataset <- match_qld(APC_raw, APC_processed, QLD_processed)
+AFA_SA_state_dataset <- match_sa(APC_raw, APC_processed, SA_processed)
+AFA_TAS_state_dataset <- match_tas(APC_raw, APC_processed, TAS_processed)
+AFA_VIC_state_dataset <- match_vic(APC_raw, APC_processed, VIC_processed)
+AFA_WA_state_dataset <- match_wa(APC_raw, APC_processed, WA_processed)
+
+#8. Create the national dataset
+AFA_national_dataset <- national_alien_flora(APC_processed, AFA_ACT_state_dataset, AFA_NSW_state_dataset, AFA_NT_state_dataset, AFA_QLD_state_dataset, AFA_SA_state_dataset, AFA_TAS_state_dataset, AFA_VIC_state_dataset, AFA_WA_state_dataset, GRIIS_processed)
+
+#9. Optional: Saving the datasets in your directory and reload them once the pro parte species are fixed. 
+#WARNING! If saving the datasets, you must use specific fileEncoding "Latin1" to avoid strange characters for all states except for Victoria. Victoria must be saved with UTF-8 encoding.
+#WARNING! If saving AFA_national_dataset "Latin1" encoding must be used to avoid weird symbols.
+#If reloading them again, fileEncoding must be set to the same specified for saving.
+
+##############################
+#End of AFA_main_R_script
+#############################

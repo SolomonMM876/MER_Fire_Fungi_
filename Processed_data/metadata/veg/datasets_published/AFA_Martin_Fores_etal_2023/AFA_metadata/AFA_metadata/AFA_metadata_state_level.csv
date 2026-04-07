@@ -1,0 +1,12 @@
+Variable name,Explanation
+State_canonical_name,Taxon canonical name according to the state or territory plant census
+State_Alien_Status,Introduction status of a given taxon in a given state or main territory according to the state or territory plant census
+APC_name,Taxon canonical name according to the Australian Plant Census
+APC_canonical_name,Taxon scientific name (including authorship) according to the Australian Plant Census
+APC_Alien_Status,Introduction status of a given taxon in a given state according to the Australian Plant Census
+APC_Authorship,Author recognised on the APC for the taxon name
+taxa_status,"Taxon status according to the Australian Plant Census (e.g. accepted, excluded, misapplied, etc.)"
+Status_comparison,"For a given taxon, result of the comparison of the introduction status obtained from the state plant census with the status obtained from the APC"
+Unified_status,"For a given taxon, unified introduction status at the jurisdictional level after unifying the information resulting from the comparison between the state plant census and the APC"
+establishment_means,Equivalence of the state unified status for the Darwin Core establishment means
+degree_of_establishment,Equivalence of the state unified status for the Darwin Core establishment means

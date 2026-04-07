@@ -1,0 +1,14 @@
+Sample ID,Sample Details,Test Name,Result,Units,Absorbance,Time,Manual Dil,Auto Dil
+STANDARD 1,,Nitrate 2, 0.0129,mg N/L,0.012912,Tue May 06 17:03:10 2025,1,1
+STANDARD 90,,Nitrate 2, 0.0258,mg N/L,0.025831,Tue May 06 17:05:12 2025,1,1
+STANDARD 91,,Nitrate 2, 0.0440,mg N/L,0.044004,Tue May 06 17:07:17 2025,1,1
+STANDARD 92,,Nitrate 2, 0.0766,mg N/L,0.076639,Tue May 06 17:09:21 2025,1,1
+STANDARD 93,,Nitrate 2, 0.1616,mg N/L,0.161570,Tue May 06 17:10:16 2025,1,1
+STANDARD 94,,Nitrate 2, 0.2875,mg N/L,0.287482,Tue May 06 17:11:10 2025,1,1
+STANDARD 95,,Nitrate 2, 0.5224,mg N/L,0.522387,Tue May 06 17:12:05 2025,1,1
+STANDARD 0,,Nitrate 2, 0.0142,mg N/L,0.014188,Tue May 06 17:13:00 2025,1,1
+C C V,,Nitrate 2, 1.0372,mg N/L,0.285958,Tue May 06 17:13:54 2025,1,1
+C C B ,,Nitrate 2,-0.0353,mg N/L,0.012883,Tue May 06 17:14:49 2025,1,1
+mq water,,Nitrate 2,-0.0264,mg N/L,0.015162,Tue May 06 17:15:43 2025,1,1
+C C V,,Nitrate 2, 1.0173,mg N/L,0.280883,Tue May 06 17:16:38 2025,1,1
+C C B ,,Nitrate 2,-0.0347,mg N/L,0.013057,Tue May 06 17:17:33 2025,1,1

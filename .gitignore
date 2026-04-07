@@ -1,0 +1,105 @@
+# ══════════════════════════════════════════════════════════════
+# .gitignore — MER Fire Fungi Project
+# ══════════════════════════════════════════════════════════════
+
+# ── R Session Files ──────────────────────────────────────────
+.Rhistory
+.Rapp.history
+.RData
+.RDataTmp
+.Ruserdata
+.Renviron
+.Rproj.user/
+
+# ── Large Data: GIS / Fire History (~4 GB) ───────────────────
+raw_data/fire_history_aus_2_7_25/
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.spx
+*.gdbtable
+*.gdbtablx
+*.gdbindexes
+*.freelist
+*.horizon
+
+# ── Large Data: BLAST binaries & temp files (~500 MB) ────────
+raw_data/DNA/BLAST/blast_temp/
+raw_data/DNA/BLAST/ncbi-blast-*.tar.gz
+raw_data/DNA/BLAST/output/
+
+# ── Duplicate / test DNA data ────────────────────────────────
+raw_data/DNA/test/
+
+# ── Large site vegetation data ───────────────────────────────
+raw_data/site_veg_data/
+
+# ── HMSC Model Objects (regenerable, ~1.5 GB) ────────────────
+*.Rdata
+*.RData
+HMSC_MER/models/
+HMSC_MER/severity_HMSC/models/
+
+# ── Plots & output figures (regenerable from scripts) ────────
+Plots/
+Project_script/plots/
+HMSC_MER/Output/
+
+# ── Document outputs ─────────────────────────────────────────
+*.docx
+*.html
+
+# ── Deprecated / orphaned root-level scripts ─────────────────
+/Bag_data.R
+/ITS_Initial_clean.R
+/Map of Sites.R
+/Metadata.R
+/Ortho_P_MER.R
+/Soil_Seq.R
+/Temp_Precip_import.R
+/World_Clim_Variables.R
+/precip_temp_graphs.R
+/MER_All_Site_Data.R
+
+# ── Deprecated directories ───────────────────────────────────
+MER_Site_Data/
+Ortho_phos/
+Bag_dat/
+Seq_scripts/Clean_import/
+
+# ── Binary / compiled / archive files ────────────────────────
+*.exe
+*.dll
+*.gz
+*.tgz
+*.7z
+*.tar
+
+# ── R build artifacts ───────────────────────────────────────
+*-Ex.R
+/*.tar.gz
+/*.Rcheck/
+vignettes/*.html
+vignettes/*.pdf
+*.utf8.md
+*.knit.md
+*_cache/
+/cache/
+
+# ── OAuth / auth tokens ─────────────────────────────────────
+.httr-oauth
+
+# ── pkgdown / Quarto / RStudio Connect ──────────────────────
+docs/
+rsconnect/
+.quarto
+
+# ── Translation temp files ───────────────────────────────────
+po/*~
+
+# ── OS files ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
